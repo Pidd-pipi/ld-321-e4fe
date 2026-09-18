@@ -22,6 +22,7 @@ func Setup(
 	redisClient *redis.Client,
 	authSvc *service.AuthService,
 	dashboardSvc *service.DashboardService,
+	dispatchSvc *service.DispatchService,
 	hub *ws.Hub,
 	cfg *config.Config,
 	logger *slog.Logger,
@@ -32,6 +33,7 @@ func Setup(
 	healthHandler := handler.NewHealthHandler(db, redisClient)
 	authHandler := handler.NewAuthHandler(authSvc)
 	dashboardHandler := handler.NewDashboardHandler(dashboardSvc)
+	dispatchHandler := handler.NewDispatchHandler(dispatchSvc)
 
 	r.GET("/healthz", healthHandler.Healthz)
 	r.GET("/readyz", healthHandler.Readyz)
@@ -52,8 +54,9 @@ func Setup(
 		dash.GET("/reports/work/export", dashboardHandler.ExportReport)
 	}
 
-	// 任务派单（前端调用 /api/tasks/:id/dispatch，经 Nginx 映射到 /api/v1/tasks/:id/dispatch）
-	v1.POST("/tasks/:id/dispatch", dashboardHandler.Dispatch)
+	// 派单预占闭环（前端调用 /api/tasks/:id/...，经 Nginx 映射到 /api/v1/tasks/:id/...）
+	v1.POST("/tasks/:id/dispatch", dispatchHandler.Dispatch)
+	v1.POST("/tasks/:id/cancel", dispatchHandler.Cancel)
 
 	// WebSocket 实时轨迹
 	r.GET("/ws", func(c *gin.Context) {

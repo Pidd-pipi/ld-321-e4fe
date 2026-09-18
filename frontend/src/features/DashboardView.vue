@@ -7,6 +7,7 @@ import MapTrackPanel from '../components/MapTrackPanel.vue';
 import MetricCard from '../components/MetricCard.vue';
 import RecordStats from '../components/RecordStats.vue';
 import TaskBoard from '../components/TaskBoard.vue';
+import DispatchAttemptLog from '../components/DispatchAttemptLog.vue';
 import { logger } from '../logger/logger';
 import { fetchFarmOverview } from '../services/storage.service';
 import type { FarmOverview } from '../types/domain';
@@ -15,7 +16,9 @@ const overview = ref<FarmOverview>();
 const loading = ref(true);
 const error = ref('');
 
-onMounted(async () => {
+const load = async () => {
+  loading.value = true;
+  error.value = '';
   try {
     overview.value = await fetchFarmOverview();
     logger.info('farm overview loaded');
@@ -24,28 +27,37 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+};
+
+onMounted(load);
 </script>
 
 <template>
   <div class="mx-auto max-w-7xl space-y-5 px-6 py-6">
     <el-alert v-if="error" :title="error" type="error" show-icon />
-    <el-skeleton v-if="loading" :rows="8" animated />
+    <el-skeleton v-if="loading && !overview" :rows="8" animated />
+
+    <div class="flex items-center justify-between">
+      <h1 class="text-xl font-black text-slate-800">调度看板</h1>
+      <el-button size="small" :loading="loading" @click="load">刷新看板</el-button>
+    </div>
 
     <template v-if="overview">
       <section class="grid gap-4 md:grid-cols-4">
-        <MetricCard label="今日待办" :value="String(overview.board.todayTodos)" note="调度看板实时刷新" />
-        <MetricCard label="空闲农机" :value="String(overview.board.idleMachines)" note="可直接派单" />
+        <MetricCard label="今日待派单" :value="String(overview.board.todayTodos)" note="待派单任务实时计数" />
+        <MetricCard label="空闲农机" :value="String(overview.board.idleMachines)" note="保养与状态满足才可派" />
         <MetricCard label="累计作业面积" :value="`${overview.stats.totalAreaMu}亩`" note="日报/月报统计" />
         <MetricCard label="油耗成本" :value="`¥${overview.stats.fuelCost}`" note="按作业记录汇总" />
       </section>
 
       <section class="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <TaskBoard :tasks="overview.tasks" />
+        <TaskBoard :tasks="overview.tasks" @changed="load" />
         <MapTrackPanel :tracks="overview.tracks" />
       </section>
 
       <MachineTable :machines="overview.machines" />
+
+      <DispatchAttemptLog :attempts="overview.attempts" />
 
       <section class="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
         <RecordStats :records="overview.records" />

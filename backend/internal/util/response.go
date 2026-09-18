@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/agridispatch/agridispatch/internal/constants"
+	apperrors "github.com/agridispatch/agridispatch/internal/errors"
 	"github.com/agridispatch/agridispatch/internal/repository"
 	"github.com/gin-gonic/gin"
 )
@@ -39,4 +40,19 @@ func FailError(c *gin.Context, err error) {
 	default:
 		Fail(c, http.StatusBadRequest, constants.CodeBadRequest, err.Error())
 	}
+}
+
+// FailDispatchError 派单闭环错误转换：业务拒绝/状态冲突返回 409 且携带可展示原因。
+func FailDispatchError(c *gin.Context, err error) {
+	var rejected *apperrors.DispatchRejectedError
+	if errors.As(err, &rejected) {
+		Fail(c, http.StatusConflict, constants.CodeConflict, rejected.Reason)
+		return
+	}
+	var state *apperrors.DispatchStateError
+	if errors.As(err, &state) {
+		Fail(c, http.StatusConflict, constants.CodeConflict, state.Reason)
+		return
+	}
+	FailError(c, err)
 }
