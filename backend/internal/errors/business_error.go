@@ -34,3 +34,21 @@ type MachineOfflineError struct {
 func (e *MachineOfflineError) Error() string {
 	return fmt.Sprintf("machine %s is offline", e.MachineCode)
 }
+
+// DispatchRejectedError 派单预检未通过（农机/保养/驾驶员任一条件不满足，整单拒绝）。
+type DispatchRejectedError struct {
+	Reason string
+}
+
+func (e *DispatchRejectedError) Error() string {
+	return e.Reason
+}
+
+// DispatchStateError 派单状态冲突（重复提交或并发竞争，只有一方能成功）。
+type DispatchStateError struct {
+	Reason string
+}
+
+func (e *DispatchStateError) Error() string {
+	return e.Reason
+}

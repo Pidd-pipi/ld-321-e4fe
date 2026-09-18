@@ -8,3 +8,10 @@ export const STATUS_COLORS: Record<string, string> = {
   已派单: 'warning',
   已完成: 'success',
 };
+export const ORDER_STATUS_COLORS: Record<string, string> = {
+  生效中: 'success',
+  已取消: 'info',
+  已拒绝: 'danger',
+};
+export const TASK_STATUS_PENDING = '待派单';
+export const ORDER_STATUS_ACTIVE = '生效中';

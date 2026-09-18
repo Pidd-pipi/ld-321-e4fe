@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import DispatchBoard from '../components/DispatchBoard.vue';
 import DriverRoster from '../components/DriverRoster.vue';
 import MachineTable from '../components/MachineTable.vue';
 import MaintenanceList from '../components/MaintenanceList.vue';
@@ -8,16 +9,25 @@ import MetricCard from '../components/MetricCard.vue';
 import RecordStats from '../components/RecordStats.vue';
 import TaskBoard from '../components/TaskBoard.vue';
 import { logger } from '../logger/logger';
+import { fetchDispatchOrders } from '../services/dispatch.service';
 import { fetchFarmOverview } from '../services/storage.service';
-import type { FarmOverview } from '../types/domain';
+import type { DispatchOrder, FarmOverview } from '../types/domain';
 
 const overview = ref<FarmOverview>();
+const orders = ref<DispatchOrder[]>([]);
 const loading = ref(true);
 const error = ref('');
 
+// 刷新看板总览与派单记录（派单/取消后回读最新绑定关系）。
+const refresh = async () => {
+  const [ov, orderList] = await Promise.all([fetchFarmOverview(), fetchDispatchOrders()]);
+  overview.value = ov;
+  orders.value = orderList;
+};
+
 onMounted(async () => {
   try {
-    overview.value = await fetchFarmOverview();
+    await refresh();
     logger.info('farm overview loaded');
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载失败';
@@ -41,9 +51,16 @@ onMounted(async () => {
       </section>
 
       <section class="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <TaskBoard :tasks="overview.tasks" />
+        <TaskBoard
+          :tasks="overview.tasks"
+          :machines="overview.machines"
+          :drivers="overview.drivers"
+          @changed="refresh"
+        />
         <MapTrackPanel :tracks="overview.tracks" />
       </section>
+
+      <DispatchBoard :orders="orders" @changed="refresh" />
 
       <MachineTable :machines="overview.machines" />
 

@@ -87,6 +87,26 @@ export interface DispatchBoard {
   trendLabels: string[];
 }
 
+export interface DispatchOrder {
+  id: string;
+  taskId: string;
+  taskType: string;
+  taskField: string;
+  machineId: string;
+  machineCode: string;
+  driverId: string;
+  driverName: string;
+  status: string;
+  failReason: string;
+  createdAt: string;
+  cancelledAt?: string;
+}
+
+export interface DispatchOrderResult {
+  order: DispatchOrder;
+  message: string;
+}
+
 export interface FarmOverview {
   items: DashboardItem[];
   machines: Machine[];
