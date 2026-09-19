@@ -11,7 +11,7 @@ import (
 // ErrNotFound 哨兵错误。
 var ErrNotFound = errors.New("record not found")
 
-// DashboardRepository 看板数据访问。
+// DashboardRepository 看板只读数据访问。
 type DashboardRepository struct {
 	db *gorm.DB
 }
@@ -44,6 +44,9 @@ func (r *DashboardRepository) Overview() (*model.FarmOverview, error) {
 	if err := r.db.Find(&ov.Drivers).Error; err != nil {
 		return nil, fmt.Errorf("load drivers: %w", err)
 	}
+	if err := r.db.Order("id DESC").Limit(50).Find(&ov.Attempts).Error; err != nil {
+		return nil, fmt.Errorf("load dispatch attempts: %w", err)
+	}
 	ov.Board = r.board(ov)
 	ov.Stats = r.stats(ov.Records)
 	return ov, nil
@@ -66,13 +69,24 @@ func (r *DashboardRepository) board(ov *model.FarmOverview) model.DispatchBoard 
 		dueList = append(dueList, fmt.Sprintf("%s %s", m.MachineCode, m.Title))
 	}
 	return model.DispatchBoard{
-		TodayTodos:      len(ov.Tasks),
+		TodayTodos:      r.countPending(ov.Tasks),
 		IdleMachines:    idle,
 		WorkingMachines: workingList,
 		DueMaintenance:  dueList,
 		SevenDayAreas:   []int{96, 122, 138, 166, 203, 88, 156},
 		TrendLabels:     []string{"5/25", "5/26", "5/27", "5/28", "5/29", "5/30", "5/31"},
 	}
+}
+
+// countPending 仅统计待派单任务为今日待办（已派单/已完成不再占用待办数）。
+func (r *DashboardRepository) countPending(tasks []model.FarmTask) int {
+	var pending int
+	for _, t := range tasks {
+		if t.Status == "待派单" {
+			pending++
+		}
+	}
+	return pending
 }
 
 // stats 汇总作业统计。
@@ -84,48 +98,6 @@ func (r *DashboardRepository) stats(records []model.WorkRecord) model.Stats {
 		s.FuelCost += rec.FuelCost
 	}
 	return s
-}
-
-// FindTask 查找任务。
-func (r *DashboardRepository) FindTask(id string) (*model.FarmTask, error) {
-	var t model.FarmTask
-	err := r.db.First(&t, "id = ?", id).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("find task: %w", err)
-	}
-	return &t, nil
-}
-
-// UpdateTask 更新任务。
-func (r *DashboardRepository) UpdateTask(t *model.FarmTask) error {
-	if err := r.db.Save(t).Error; err != nil {
-		return fmt.Errorf("update task: %w", err)
-	}
-	return nil
-}
-
-// FindMachineByCode 按农机编号查找农机。
-func (r *DashboardRepository) FindMachineByCode(code string) (*model.Machine, error) {
-	var m model.Machine
-	err := r.db.First(&m, "code = ?", code).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("find machine by code: %w", err)
-	}
-	return &m, nil
-}
-
-// UpdateMachine 更新农机。
-func (r *DashboardRepository) UpdateMachine(m *model.Machine) error {
-	if err := r.db.Save(m).Error; err != nil {
-		return fmt.Errorf("update machine: %w", err)
-	}
-	return nil
 }
 
 // UserRepository 用户数据访问。

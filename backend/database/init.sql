@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS machines (
   photo_url VARCHAR(255) DEFAULT '',
   work_hours DECIMAL(10,2) DEFAULT 0,
   current_task VARCHAR(64) DEFAULT '',
-  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
+  maintenance_hours DECIMAL(8,2) DEFAULT 0 COMMENT '距下次保养剩余可作业工时',
+  task_id VARCHAR(32) DEFAULT '' COMMENT '当前绑定任务ID',
+  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  INDEX idx_machine_task (task_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS farm_tasks (
@@ -38,7 +41,12 @@ CREATE TABLE IF NOT EXISTS farm_tasks (
   recommended_machine VARCHAR(64) DEFAULT '',
   recommended_driver VARCHAR(64) DEFAULT '',
   planned_window VARCHAR(64) DEFAULT '',
-  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
+  last_attempt_action VARCHAR(16) DEFAULT '' COMMENT '最近尝试 dispatch/cancel',
+  last_attempt_result VARCHAR(16) DEFAULT '' COMMENT 'success/rejected/released/noop',
+  last_attempt_reason VARCHAR(255) DEFAULT '' COMMENT '最近尝试失败原因',
+  last_attempt_at DATETIME(3) NULL,
+  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  INDEX idx_task_last_attempt (last_attempt_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS track_points (
@@ -88,8 +96,26 @@ CREATE TABLE IF NOT EXISTS drivers (
   rest_day VARCHAR(16) DEFAULT '',
   month_area_mu DECIMAL(10,2) DEFAULT 0,
   rating DECIMAL(4,2) DEFAULT 0,
-  status VARCHAR(16) DEFAULT '在岗',
-  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
+  status VARCHAR(16) DEFAULT '在岗' COMMENT '当天在岗状态 在岗/休息',
+  work_status VARCHAR(16) DEFAULT '空闲' COMMENT '作业占用状态 空闲/作业中',
+  task_id VARCHAR(32) DEFAULT '' COMMENT '当前绑定任务ID',
+  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  INDEX idx_driver_task (task_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS dispatch_attempts (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  task_id VARCHAR(32) NOT NULL,
+  task_type VARCHAR(32) DEFAULT '',
+  task_field VARCHAR(64) DEFAULT '',
+  machine_code VARCHAR(32) DEFAULT '',
+  driver_name VARCHAR(64) DEFAULT '',
+  action VARCHAR(16) NOT NULL COMMENT 'dispatch/cancel',
+  result VARCHAR(16) NOT NULL COMMENT 'success/rejected/released/noop',
+  reason VARCHAR(255) DEFAULT '' COMMENT '拒绝/失败原因',
+  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  INDEX idx_attempt_task (task_id),
+  INDEX idx_attempt_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS dashboard_items (

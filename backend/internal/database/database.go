@@ -44,6 +44,7 @@ func Connect(dsn string, maxOpen, maxIdle, connMaxLifetime, retryCount, retryInt
 		&model.MaintenanceReminder{},
 		&model.Driver{},
 		&model.DashboardItem{},
+		&model.DispatchAttempt{},
 	); err != nil {
 		return nil, fmt.Errorf("auto migrate: %w", err)
 	}
@@ -77,21 +78,22 @@ func Seed(db *gorm.DB) error {
 	if err := db.Create(&items).Error; err != nil {
 		return fmt.Errorf("seed items: %w", err)
 	}
-	// 农机
+	// 农机（MaintenanceHours=距下次保养剩余可作业工时；TaskID 为当前绑定任务）
 	machines := []model.Machine{
-		{ID: "m1", Code: "NJ-2026-001", Name: "东方红 1804", Model: "LX1804", PurchasedAt: "2023-03-12", Horsepower: 180, Field: "北岭 1 号田", Status: "作业中", QRCode: "QR-NJ-001", PhotoURL: "/assets/machine-tractor.jpg", WorkHours: 284.5, CurrentTask: "春耕翻地"},
-		{ID: "m2", Code: "NJ-2026-002", Name: "雷沃谷神收割机", Model: "GE80S", PurchasedAt: "2022-09-18", Horsepower: 160, Field: "南湾稻田", Status: "空闲", QRCode: "QR-NJ-002", PhotoURL: "/assets/machine-harvester.jpg", WorkHours: 412.0, CurrentTask: "可派单"},
-		{ID: "m3", Code: "NJ-2026-003", Name: "中联履带拖拉机", Model: "RK140", PurchasedAt: "2024-01-06", Horsepower: 140, Field: "西坡旱地", Status: "维修中", QRCode: "QR-NJ-003", PhotoURL: "/assets/machine-crawler.jpg", WorkHours: 98.0, CurrentTask: "液压检修"},
+		{ID: "m1", Code: "NJ-2026-001", Name: "东方红 1804", Model: "LX1804", PurchasedAt: "2023-03-12", Horsepower: 180, Field: "北岭 1 号田", Status: "空闲", QRCode: "QR-NJ-001", PhotoURL: "/assets/machine-tractor.jpg", WorkHours: 284.5, CurrentTask: "", MaintenanceHours: 48, TaskID: ""},
+		{ID: "m2", Code: "NJ-2026-002", Name: "雷沃谷神收割机", Model: "GE80S", PurchasedAt: "2022-09-18", Horsepower: 160, Field: "南湾稻田", Status: "空闲", QRCode: "QR-NJ-002", PhotoURL: "/assets/machine-harvester.jpg", WorkHours: 412.0, CurrentTask: "", MaintenanceHours: 3.5, TaskID: ""},
+		{ID: "m3", Code: "NJ-2026-003", Name: "中联履带拖拉机", Model: "RK140", PurchasedAt: "2024-01-06", Horsepower: 140, Field: "西坡旱地", Status: "维修中", QRCode: "QR-NJ-003", PhotoURL: "/assets/machine-crawler.jpg", WorkHours: 98.0, CurrentTask: "液压检修", MaintenanceHours: 0, TaskID: ""},
+		{ID: "m4", Code: "NJ-2026-004", Name: "沃得锐龙收割机", Model: "4LZ-6.0", PurchasedAt: "2023-11-02", Horsepower: 120, Field: "东河麦田", Status: "空闲", QRCode: "QR-NJ-004", PhotoURL: "/assets/machine-harvester2.jpg", WorkHours: 356.5, CurrentTask: "", MaintenanceHours: 26, TaskID: ""},
 	}
 	if err := db.Create(&machines).Error; err != nil {
 		return fmt.Errorf("seed machines: %w", err)
 	}
-	// 任务
+	// 任务：t1 条件齐备可成功；t2 保养工时不足；t3 农机维修中；t4 驾驶员当天休息
 	tasks := []model.FarmTask{
-		{ID: "t1", Type: "耕地", Field: "北岭 1 号田", AreaMu: 180, EstimatedHours: 9.5, Status: "已派单", Priority: "高", RecommendedMachine: "NJ-2026-001", RecommendedDriver: "周明", PlannedWindow: "今日 08:00-18:00"},
+		{ID: "t1", Type: "耕地", Field: "北岭 1 号田", AreaMu: 180, EstimatedHours: 9.5, Status: "待派单", Priority: "高", RecommendedMachine: "NJ-2026-001", RecommendedDriver: "周明", PlannedWindow: "今日 08:00-18:00"},
 		{ID: "t2", Type: "播种", Field: "西坡旱地", AreaMu: 96, EstimatedHours: 6.0, Status: "待派单", Priority: "中", RecommendedMachine: "NJ-2026-002", RecommendedDriver: "何燕", PlannedWindow: "明日 07:30-14:00"},
-		{ID: "t3", Type: "施肥", Field: "南湾稻田", AreaMu: 132, EstimatedHours: 5.5, Status: "待派单", Priority: "中", RecommendedMachine: "NJ-2026-002", RecommendedDriver: "刘强", PlannedWindow: "今日 14:00-20:00"},
-		{ID: "t4", Type: "收割", Field: "东河麦田", AreaMu: 210, EstimatedHours: 11.0, Status: "已完成", Priority: "高", RecommendedMachine: "NJ-2026-004", RecommendedDriver: "周明", PlannedWindow: "昨日 06:30-17:30"},
+		{ID: "t3", Type: "施肥", Field: "南湾稻田", AreaMu: 132, EstimatedHours: 5.5, Status: "待派单", Priority: "中", RecommendedMachine: "NJ-2026-003", RecommendedDriver: "周明", PlannedWindow: "今日 14:00-20:00"},
+		{ID: "t4", Type: "收割", Field: "东河麦田", AreaMu: 210, EstimatedHours: 11.0, Status: "待派单", Priority: "高", RecommendedMachine: "NJ-2026-004", RecommendedDriver: "刘强", PlannedWindow: "今日 06:30-17:30"},
 	}
 	if err := db.Create(&tasks).Error; err != nil {
 		return fmt.Errorf("seed tasks: %w", err)
@@ -125,11 +127,11 @@ func Seed(db *gorm.DB) error {
 	if err := db.Create(&reminders).Error; err != nil {
 		return fmt.Errorf("seed reminders: %w", err)
 	}
-	// 驾驶员
+	// 驾驶员：Status=当天是否在岗；WorkStatus=是否已被任务占用（初始均空闲）
 	drivers := []model.Driver{
-		{ID: "d1", Name: "周明", LicenseNo: "A2-4101811990", Phone: "13800010001", Shift: "早班", RestDay: "周日", MonthAreaMu: 486, Rating: 4.8, Status: "在岗"},
-		{ID: "d2", Name: "何燕", LicenseNo: "B2-4101811992", Phone: "13800010002", Shift: "中班", RestDay: "周三", MonthAreaMu: 318, Rating: 4.7, Status: "可派单"},
-		{ID: "d3", Name: "刘强", LicenseNo: "A1-4101811988", Phone: "13800010003", Shift: "夜班", RestDay: "周五", MonthAreaMu: 402, Rating: 4.6, Status: "休息"},
+		{ID: "d1", Name: "周明", LicenseNo: "A2-4101811990", Phone: "13800010001", Shift: "早班", RestDay: "周日", MonthAreaMu: 486, Rating: 4.8, Status: "在岗", WorkStatus: "空闲", TaskID: ""},
+		{ID: "d2", Name: "何燕", LicenseNo: "B2-4101811992", Phone: "13800010002", Shift: "中班", RestDay: "周三", MonthAreaMu: 318, Rating: 4.7, Status: "在岗", WorkStatus: "空闲", TaskID: ""},
+		{ID: "d3", Name: "刘强", LicenseNo: "A1-4101811988", Phone: "13800010003", Shift: "夜班", RestDay: "周五", MonthAreaMu: 402, Rating: 4.6, Status: "休息", WorkStatus: "空闲", TaskID: ""},
 	}
 	if err := db.Create(&drivers).Error; err != nil {
 		return fmt.Errorf("seed drivers: %w", err)

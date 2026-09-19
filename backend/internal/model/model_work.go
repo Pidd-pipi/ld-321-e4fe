@@ -30,16 +30,19 @@ type MaintenanceReminder struct {
 
 // Driver 驾驶员。
 type Driver struct {
-	ID           string    `gorm:"primaryKey;size:32" json:"id"`
-	Name         string    `gorm:"size:64" json:"name"`
-	LicenseNo    string    `gorm:"size:32" json:"licenseNo"`
-	Phone        string    `gorm:"size:32" json:"phone"`
-	Shift        string    `gorm:"size:16" json:"shift"`
-	RestDay      string    `gorm:"size:16" json:"restDay"`
-	MonthAreaMu  float64   `json:"monthAreaMu"`
-	Rating       float64   `json:"rating"`
-	Status       string    `gorm:"size:16" json:"status"`
-	CreatedAt    time.Time `json:"-"`
+	ID          string  `gorm:"primaryKey;size:32" json:"id"`
+	Name        string  `gorm:"size:64" json:"name"`
+	LicenseNo   string  `gorm:"size:32" json:"licenseNo"`
+	Phone       string  `gorm:"size:32" json:"phone"`
+	Shift       string  `gorm:"size:16" json:"shift"`
+	RestDay     string  `gorm:"size:16" json:"restDay"`
+	MonthAreaMu float64 `json:"monthAreaMu"`
+	Rating      float64 `json:"rating"`
+	// Status 为当日在岗状态（在岗/休息），WorkStatus 为派单占用状态（空闲/作业中）。
+	Status     string    `gorm:"size:16" json:"status"`
+	WorkStatus string    `gorm:"size:16;index;default:空闲" json:"workStatus"`
+	TaskID     string    `gorm:"size:32;index;default:''" json:"taskId"`
+	CreatedAt  time.Time `json:"-"`
 }
 
 // DashboardItem 功能模块卡片。

@@ -19,6 +19,10 @@ export interface Machine {
   photoUrl: string;
   workHours: number;
   currentTask: string;
+  /** 距下次保养剩余可作业工时 */
+  maintenanceHours: number;
+  /** 当前绑定的任务 ID（作业中时有值） */
+  taskId: string;
 }
 
 export interface FarmTask {
@@ -32,6 +36,25 @@ export interface FarmTask {
   recommendedMachine: string;
   recommendedDriver: string;
   plannedWindow: string;
+  /** 最近一次派单/取消尝试（刷新后仍可回读失败原因） */
+  lastAttemptAction: string;
+  lastAttemptResult: string;
+  lastAttemptReason: string;
+  lastAttemptAt: string;
+}
+
+/** 派单/取消尝试记录 */
+export interface DispatchAttempt {
+  id: number;
+  taskId: string;
+  taskType: string;
+  taskField: string;
+  machineCode: string;
+  driverName: string;
+  action: 'dispatch' | 'cancel';
+  result: 'success' | 'rejected' | 'released' | 'noop';
+  reason: string;
+  createdAt: string;
 }
 
 export interface TrackPoint {
@@ -75,7 +98,11 @@ export interface Driver {
   restDay: string;
   monthAreaMu: number;
   rating: number;
+  /** 当天在岗状态：在岗/休息 */
   status: string;
+  /** 作业占用状态：空闲/作业中 */
+  workStatus: string;
+  taskId: string;
 }
 
 export interface DispatchBoard {
@@ -95,6 +122,7 @@ export interface FarmOverview {
   records: WorkRecord[];
   maintenance: MaintenanceReminder[];
   drivers: Driver[];
+  attempts: DispatchAttempt[];
   board: DispatchBoard;
   stats: {
     totalAreaMu: number;
